@@ -1,0 +1,174 @@
+/*
+ * Weather Intelligence Dashboard — Base Theme
+ * Dark theme ported from Nowcast SIN Dashboard, unified across all modules.
+ */
+
+/* ── CSS Custom Properties ─────────────────────────────────────────── */
+:root {
+    --wid-bg-primary: #080c14;
+    --wid-bg-secondary: #0d1320;
+    --wid-bg-panel: #111827;
+    --wid-bg-panel-hover: #1a2332;
+    --wid-border: #1e293b;
+    --wid-border-active: #f59e0b;
+    --wid-text-primary: #f1f5f9;
+    --wid-text-secondary: #94a3b8;
+    --wid-text-muted: #64748b;
+    --wid-accent: #f59e0b;
+    --wid-accent-dim: rgba(245, 158, 11, 0.15);
+    --wid-accent-glow: rgba(245, 158, 11, 0.3);
+    --wid-danger: #ef4444;
+    --wid-success: #22c55e;
+    --wid-info: #3b82f6;
+    --wid-warning: #f59e0b;
+    --wid-radius: 8px;
+    --wid-radius-lg: 12px;
+    --wid-font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --wid-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* ── Global Resets ─────────────────────────────────────────────────── */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--wid-bg-primary);
+    color: var(--wid-text-primary);
+    font-family: var(--wid-font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar Styling ─────────────────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--wid-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--wid-border);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--wid-text-muted);
+}
+
+/* ── Plotly Chart Overrides ────────────────────────────────────────── */
+.js-plotly-plot .plotly .modebar {
+    background: transparent !important;
+}
+
+.js-plotly-plot .plotly .modebar-btn {
+    color: var(--wid-text-muted) !important;
+}
+
+.js-plotly-plot .plotly .modebar-btn:hover {
+    color: var(--wid-accent) !important;
+}
+
+.js-plotly-plot .plotly .modebar-btn.active {
+    color: var(--wid-accent) !important;
+}
+
+/* ── Dash Loading Spinner ──────────────────────────────────────────── */
+._dash-loading {
+    background-color: transparent !important;
+}
+
+/* ── Selection ─────────────────────────────────────────────────────── */
+::selection {
+    background: var(--wid-accent-dim);
+    color: var(--wid-text-primary);
+}
+
+/* ── Link Styles ───────────────────────────────────────────────────── */
+a {
+    color: var(--wid-accent);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* ── Leaflet Map Overrides ─────────────────────────────────────────── */
+.leaflet-container {
+    background: #0a0f1a !important;
+    font-family: var(--wid-font-sans);
+}
+
+.leaflet-control-zoom a {
+    background-color: var(--wid-bg-panel) !important;
+    color: var(--wid-text-primary) !important;
+    border-color: var(--wid-border) !important;
+}
+
+.leaflet-control-zoom a:hover {
+    background-color: var(--wid-bg-panel-hover) !important;
+}
+
+.leaflet-popup-content-wrapper {
+    background: var(--wid-bg-panel) !important;
+    color: var(--wid-text-primary) !important;
+    border-radius: var(--wid-radius) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+.leaflet-popup-tip {
+    background: var(--wid-bg-panel) !important;
+}
+
+/* ── Mantine Component Overrides ───────────────────────────────────── */
+.mantine-AppShell-navbar {
+    transition: width 200ms ease;
+}
+
+.mantine-NavLink-root {
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+.mantine-NavLink-root:hover {
+    background-color: var(--wid-bg-panel-hover) !important;
+}
+
+.mantine-NavLink-root[data-active="true"] {
+    background-color: var(--wid-accent-dim) !important;
+    border-left: 3px solid var(--wid-accent);
+}
+
+.mantine-Tabs-tab {
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.mantine-Tabs-tab[data-active="true"] {
+    border-color: var(--wid-accent) !important;
+    color: var(--wid-accent) !important;
+}
+
+/* ── Utility Classes ───────────────────────────────────────────────── */
+.wid-mono {
+    font-family: var(--wid-font-mono);
+}
+
+.wid-accent {
+    color: var(--wid-accent);
+}
+
+.wid-glow {
+    box-shadow: 0 0 12px var(--wid-accent-glow);
+}
+
+.wid-panel {
+    background-color: var(--wid-bg-panel);
+    border: 1px solid var(--wid-border);
+    border-radius: var(--wid-radius);
+}

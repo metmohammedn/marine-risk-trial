@@ -1,0 +1,5 @@
+# Marine Weather Risk — Demo
+# Trial is AWS-auth gated, but noindex belt-and-braces: crawlers shouldn't
+# index the URL or follow links if they somehow reach it.
+User-agent: *
+Disallow: /

@@ -1,0 +1,157 @@
+/*
+ * Layout styles — AppShell, grid, panels, responsive breakpoints.
+ */
+
+/* ── Main App Container ────────────────────────────────────────────── */
+.mantine-AppShell-main {
+    min-height: 100vh;
+    background-color: var(--wid-bg-primary);
+    font-size: 15px;
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────────── */
+.mantine-AppShell-navbar {
+    background-color: var(--wid-bg-secondary) !important;
+    border-right: 1px solid var(--wid-border) !important;
+}
+
+/* ── Header ────────────────────────────────────────────────────────── */
+.mantine-AppShell-header {
+    background-color: var(--wid-bg-secondary) !important;
+    border-bottom: 1px solid var(--wid-border) !important;
+}
+
+/* ── Panel Cards ───────────────────────────────────────────────────── */
+.wid-metric-card {
+    background-color: var(--wid-bg-panel);
+    border: 1px solid var(--wid-border);
+    border-radius: var(--wid-radius);
+    padding: 16px;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.wid-metric-card:hover {
+    border-color: var(--wid-border-active);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1);
+}
+
+/* ── Alert Status Banners ──────────────────────────────────────────── */
+.wid-status-ok {
+    border-left: 4px solid var(--wid-success);
+}
+
+.wid-status-warning {
+    border-left: 4px solid var(--wid-warning);
+}
+
+.wid-status-critical {
+    border-left: 4px solid var(--wid-danger);
+    animation: wid-pulse 2s ease-in-out infinite;
+}
+
+@keyframes wid-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* ── Nowcast-specific Layout ───────────────────────────────────────── */
+.wid-nowcast-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1px;
+    background-color: var(--wid-border);
+    height: calc(100vh - 52px - 44px - 56px);
+}
+
+.wid-nowcast-panel {
+    background-color: var(--wid-bg-panel);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Dropdown Z-Index Fix ─────────────────────────────────────────── */
+/* Controls bar must sit above map/chart panels so dropdowns aren't clipped */
+.weather-controls-bar {
+    position: relative;
+    z-index: 400;
+}
+
+/* Leaflet creates its own stacking context; cap it below the Mantine
+   dropdown portal z-index so Select menus always float on top. */
+.leaflet-container {
+    z-index: 0 !important;
+}
+
+/* Mantine Combobox portals — ensure they sit above everything */
+.mantine-Combobox-dropdown {
+    z-index: 1000 !important;
+}
+
+.mantine-Select-dropdown,
+.mantine-Popover-dropdown {
+    z-index: 1000 !important;
+}
+
+/* ── Threshold Panel ─────────────────────────────────────────────── */
+.threshold-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background-color 150ms ease;
+}
+
+.threshold-chip:hover {
+    filter: brightness(1.2);
+}
+
+.threshold-chip button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 2px;
+    display: flex;
+    align-items: center;
+    opacity: 0.7;
+    transition: opacity 150ms ease;
+}
+
+.threshold-chip button:hover {
+    opacity: 1;
+}
+
+/* ── Responsive Chart/Map Heights ─────────────────────────────────── */
+.wid-chart-lg { height: 500px; }
+.wid-chart-md { height: 450px; }
+.wid-chart-sm { height: 380px; }
+.wid-chart-xs { height: 300px; }
+
+/* ── Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .wid-nowcast-grid {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+
+    .wid-nowcast-panel {
+        min-height: 350px;
+    }
+}
+
+@media (max-width: 576px) {
+    .wid-chart-lg { height: clamp(300px, 55vh, 500px); }
+    .wid-chart-md { height: clamp(280px, 50vh, 400px); }
+    .wid-chart-sm { height: clamp(250px, 45vh, 350px); }
+    .wid-chart-xs { height: clamp(220px, 40vh, 280px); }
+
+    .threshold-chip button {
+        padding: 4px 6px;
+        min-width: 28px;
+        min-height: 28px;
+    }
+}
+

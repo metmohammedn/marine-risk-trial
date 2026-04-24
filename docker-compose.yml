@@ -1,0 +1,33 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${PORT:-8050}:8050"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8050
+      - DEBUG=${DEBUG:-false}
+      - REDIS_URL=redis://redis:6379/0
+      - DATA_SOURCE=${DATA_SOURCE:-open-meteo}
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-4}
+      - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-120}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  redis_data:

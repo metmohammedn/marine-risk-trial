@@ -1,0 +1,132 @@
+/*
+ * Component styles — Cards, badges, alerts, metric tiles.
+ */
+
+/* ── TC Map City Labels ──────────────────────────────────────────── */
+.city-name-label {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #cbd5e1 !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    padding: 0 !important;
+    white-space: nowrap !important;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8) !important;
+}
+.city-name-label::before {
+    display: none !important;
+}
+
+/* ── Clickable location cards hover effect ─────────────────────────── */
+button[class*="mantine-UnstyledButton"]:hover .mantine-Paper-root {
+    background-color: #1a2332 !important;
+    border-color: #3b82f6 !important;
+}
+
+/* ── Metric Cards ──────────────────────────────────────────────────── */
+.wid-stat-card {
+    background: linear-gradient(135deg, var(--wid-bg-panel) 0%, var(--wid-bg-panel-hover) 100%);
+    border: 1px solid var(--wid-border);
+    border-radius: var(--wid-radius-lg);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.wid-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--wid-accent);
+    border-radius: 4px 0 0 4px;
+}
+
+.wid-stat-card .stat-value {
+    font-family: var(--wid-font-mono);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--wid-text-primary);
+    line-height: 1;
+}
+
+.wid-stat-card .stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--wid-text-muted);
+    margin-top: 4px;
+}
+
+/* ── Ramp Alert Badges ─────────────────────────────────────────────── */
+.wid-ramp-warning {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    animation: wid-pulse 2s ease-in-out infinite;
+}
+
+.wid-ramp-critical {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    animation: wid-pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Download Buttons ──────────────────────────────────────────────── */
+.wid-download-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* ── Flood Status Colors ───────────────────────────────────────────── */
+.wid-flood-major { color: #dc2626; }
+.wid-flood-moderate { color: #f97316; }
+.wid-flood-minor { color: #22c55e; }
+.wid-flood-normal { color: #3b82f6; }
+
+/* ── Map Legend ─────────────────────────────────────────────────────── */
+.wid-legend {
+    background: rgba(13, 19, 32, 0.9);
+    border: 1px solid var(--wid-border);
+    border-radius: var(--wid-radius);
+    padding: 8px 12px;
+    backdrop-filter: blur(8px);
+}
+
+.wid-legend-gradient {
+    height: 10px;
+    border-radius: 5px;
+    margin: 4px 0;
+}
+
+.wid-legend-gradient-ghi {
+    background: linear-gradient(90deg,
+        #0d0030, #2d1b69, #6b21a8, #dc2626,
+        #f97316, #facc15, #fef9c3);
+}
+
+.wid-legend-gradient-cod {
+    background: linear-gradient(90deg,
+        rgba(15, 23, 42, 0.1), #06b6d4, #22d3ee,
+        #67e8f9, #a5f3fc, #ecfeff);
+}
+
+.wid-legend-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-family: var(--wid-font-mono);
+    color: var(--wid-text-muted);
+}
+
+/* ── Model Agreement Badge ─────────────────────────────────────────── */
+.wid-agreement-high { color: var(--wid-success); }
+.wid-agreement-moderate { color: var(--wid-info); }
+.wid-agreement-low { color: var(--wid-warning); }
+.wid-agreement-very-low { color: var(--wid-danger); }
