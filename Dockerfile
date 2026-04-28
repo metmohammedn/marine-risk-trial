@@ -1,8 +1,12 @@
 FROM python:3.12-slim
 
+# Set at build time, e.g. --build-arg APP_VERSION=$(git rev-parse --short HEAD)
+ARG APP_VERSION=dev
+
 # Prevent Python from writing .pyc files and enable unbuffered output
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    APP_VERSION=${APP_VERSION}
 
 WORKDIR /app
 

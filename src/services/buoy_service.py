@@ -81,6 +81,8 @@ def find_nearest_buoy(
 
     best_name, best_config, best_dist = None, None, float("inf")
     for name, config in IMOS_WAVE_BUOYS.items():
+        if not config.get("realtime_active", True):
+            continue
         dist = _haversine(target_lat, target_lon, config["lat"], config["lon"])
         if dist < best_dist:
             best_name, best_config, best_dist = name, config, dist

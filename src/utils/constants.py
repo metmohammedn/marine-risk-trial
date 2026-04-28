@@ -82,8 +82,10 @@ IMOS_WAVE_BUOYS = {
     "Cape Naturaliste":  {"lat": -33.53, "lon": 114.93, "provider": "DoT-WA"},
     "Albany":            {"lat": -35.20, "lon": 117.73, "provider": "DoT-WA"},
     "Esperance":         {"lat": -33.87, "lon": 121.89, "provider": "DoT-WA"},
-    "Dampier":           {"lat": -20.44, "lon": 116.73, "provider": "PPA"},
-    "Port-Hedland":      {"lat": -20.31, "lon": 118.58, "provider": "PPA"},
+    # PPA stopped publishing to the public AODN feed in mid-2024 — keep on the
+    # map for context, but exclude from the nearest-buoy auto-match.
+    "Dampier":           {"lat": -20.44, "lon": 116.73, "provider": "PPA", "realtime_active": False},
+    "Port-Hedland":      {"lat": -20.31, "lon": 118.58, "provider": "PPA", "realtime_active": False},
 }
 
 # Buoy matching & cache
