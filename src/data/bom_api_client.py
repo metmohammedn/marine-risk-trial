@@ -236,77 +236,9 @@ class BomApiClient:
             DataFrame indexed by time with variable columns
         """
         ds = self.get_point_data(model, lons, lats, variables, domain, member)
-
-        # Extract single point if point dimension exists
-        if "point" in ds.dims and ds.dims["point"] > 1:
-            ds = ds.isel(point=point_index)
-        elif "point" in ds.dims:
-            ds = ds.isel(point=0)
-
-        # Handle ensemble dimension
-        has_ensemble = "number" in ds.dims
-        if has_ensemble:
-            # Convert ensemble data to wide format: var_model_member_XX
-            dfs = []
-            for member_idx in ds["number"].values:
-                member_ds = ds.sel(number=member_idx)
-                member_df = member_ds.to_dataframe().reset_index()
-
-                # Find time column
-                time_col = _find_time_column(member_df)
-                if time_col and time_col != "datetime":
-                    member_df = member_df.rename(columns={time_col: "datetime"})
-
-                # Rename variable columns to include model and member
-                for var in ds.data_vars:
-                    # Map BoM name to canonical name if requested
-                    canonical = BOM_VARIABLE_MAP.get(var, var) if map_variable_names else var
-                    col_name = f"{canonical}_{model}_member_{int(member_idx):02d}"
-                    if var in member_df.columns:
-                        member_df = member_df.rename(columns={var: col_name})
-
-                dfs.append(member_df)
-
-            if dfs:
-                # Merge all members on datetime
-                result = dfs[0]
-                for df in dfs[1:]:
-                    shared_cols = ["datetime"]
-                    data_cols = [c for c in df.columns if c not in result.columns and c != "datetime"]
-                    if data_cols:
-                        result = result.merge(df[["datetime"] + data_cols], on="datetime", how="outer")
-                result["datetime"] = pd.to_datetime(result["datetime"])
-                return result.set_index("datetime").sort_index()
-
-        # Deterministic: simple conversion
-        df = ds.to_dataframe().reset_index()
-
-        # Find and normalize time column
-        time_col = _find_time_column(df)
-        if time_col and time_col != "datetime":
-            df = df.rename(columns={time_col: "datetime"})
-
-        if "datetime" in df.columns:
-            df["datetime"] = pd.to_datetime(df["datetime"])
-
-        # Rename variables to canonical names + model suffix
-        if map_variable_names:
-            for bom_name, canonical in BOM_VARIABLE_MAP.items():
-                col_target = f"{canonical}_{model}"
-                if bom_name in df.columns:
-                    df = df.rename(columns={bom_name: col_target})
-
-        # Drop coordinate/metadata columns, keep datetime + data
-        drop_cols = [
-            "point", "height", "height_0", "latitude", "longitude",
-            "forecast_reference_time", "time_0", "crs",
-        ]
-        df = df.drop(columns=[c for c in drop_cols if c in df.columns], errors="ignore")
-
-        if "datetime" in df.columns:
-            df = df.set_index("datetime").sort_index()
-
-        return df
+        return _reshape_point_dataframe(
+            ds, model, point_index=point_index, map_variable_names=map_variable_names,
+        )
 
     # ── Model info ───────────────────────────────────────────────────────
 
@@ -355,6 +287,90 @@ def _find_time_column(df: pd.DataFrame) -> Optional[str]:
         if pd.api.types.is_datetime64_any_dtype(df[col]):
             return col
     return None
+
+
+def _reshape_point_dataframe(
+    ds: xr.Dataset,
+    model: str,
+    point_index: int = 0,
+    map_variable_names: bool = True,
+) -> pd.DataFrame:
+    """
+    Reshape a BoM API point dataset (single-point or ensemble) into a wide
+    DataFrame indexed on datetime. Pure transformation — no I/O. Shared by
+    `BomApiClient.get_point_dataframe` and the native-async client in
+    `bom_api_client_async.py`.
+    """
+    # Extract single point if point dimension exists
+    if "point" in ds.dims and ds.dims["point"] > 1:
+        ds = ds.isel(point=point_index)
+    elif "point" in ds.dims:
+        ds = ds.isel(point=0)
+
+    # Handle ensemble dimension
+    has_ensemble = "number" in ds.dims
+    if has_ensemble:
+        # Convert ensemble data to wide format: var_model_member_XX
+        dfs = []
+        for member_idx in ds["number"].values:
+            member_ds = ds.sel(number=member_idx)
+            member_df = member_ds.to_dataframe().reset_index()
+
+            # Find time column
+            time_col = _find_time_column(member_df)
+            if time_col and time_col != "datetime":
+                member_df = member_df.rename(columns={time_col: "datetime"})
+
+            # Rename variable columns to include model and member
+            for var in ds.data_vars:
+                # Map BoM name to canonical name if requested
+                canonical = BOM_VARIABLE_MAP.get(var, var) if map_variable_names else var
+                col_name = f"{canonical}_{model}_member_{int(member_idx):02d}"
+                if var in member_df.columns:
+                    member_df = member_df.rename(columns={var: col_name})
+
+            dfs.append(member_df)
+
+        if dfs:
+            # Merge all members on datetime
+            result = dfs[0]
+            for df in dfs[1:]:
+                shared_cols = ["datetime"]
+                data_cols = [c for c in df.columns if c not in result.columns and c != "datetime"]
+                if data_cols:
+                    result = result.merge(df[["datetime"] + data_cols], on="datetime", how="outer")
+            result["datetime"] = pd.to_datetime(result["datetime"])
+            return result.set_index("datetime").sort_index()
+
+    # Deterministic: simple conversion
+    df = ds.to_dataframe().reset_index()
+
+    # Find and normalize time column
+    time_col = _find_time_column(df)
+    if time_col and time_col != "datetime":
+        df = df.rename(columns={time_col: "datetime"})
+
+    if "datetime" in df.columns:
+        df["datetime"] = pd.to_datetime(df["datetime"])
+
+    # Rename variables to canonical names + model suffix
+    if map_variable_names:
+        for bom_name, canonical in BOM_VARIABLE_MAP.items():
+            col_target = f"{canonical}_{model}"
+            if bom_name in df.columns:
+                df = df.rename(columns={bom_name: col_target})
+
+    # Drop coordinate/metadata columns, keep datetime + data
+    drop_cols = [
+        "point", "height", "height_0", "latitude", "longitude",
+        "forecast_reference_time", "time_0", "crs",
+    ]
+    df = df.drop(columns=[c for c in drop_cols if c in df.columns], errors="ignore")
+
+    if "datetime" in df.columns:
+        df = df.set_index("datetime").sort_index()
+
+    return df
 
 
 # ─── Module-level singleton ───────────────────────────────────────────────────

@@ -1012,6 +1012,17 @@ def _wind_stat_cards(wind_data, wind_threshold, agreement):
         p90 = df[wind_cols].quantile(0.9, axis=1)
         color = MARINE_ALL_WIND_MODELS.get(model_key, {}).get("color", "#888")
         members = MARINE_ALL_WIND_MODELS.get(model_key, {}).get("members", "?")
+        # Deterministic models (ACCESS-G) have no spread: collapse to a
+        # single "Max" line so we don't imply a 1-member ensemble.
+        if members == 1:
+            stat_lines = [
+                dmc.Text(f"Max: {median.max():.1f} kn", size="xs", c="dimmed"),
+            ]
+        else:
+            stat_lines = [
+                dmc.Text(f"Max Median: {median.max():.1f} kn", size="xs", c="dimmed"),
+                dmc.Text(f"Max P90: {p90.max():.1f} kn", size="xs", c="dimmed"),
+            ]
         cards.append(
             dmc.Paper(
                 shadow="sm", p="sm", radius="md",
@@ -1022,8 +1033,7 @@ def _wind_stat_cards(wind_data, wind_threshold, agreement):
                                         "backgroundColor": color}),
                         dmc.Text(f"{model_key} ({members})", size="xs", fw=600, c="white"),
                     ]),
-                    dmc.Text(f"Max Median: {median.max():.1f} kn", size="xs", c="dimmed"),
-                    dmc.Text(f"Max P90: {p90.max():.1f} kn", size="xs", c="dimmed"),
+                    *stat_lines,
                 ]),
             )
         )

@@ -192,29 +192,36 @@ def create_ensemble_spread_chart(
     member_count: int,
     weather_windows: Optional[List] = None,
 ) -> go.Figure:
-    """Ensemble spread (10th–90th percentile) for one model."""
+    """Wind forecast chart. Ensemble spread (10th-90th band + median) for
+    multi-member models; single line labelled as a deterministic forecast
+    when `member_count == 1` (ACCESS-G)."""
     fig = go.Figure()
 
     if stats_df.empty:
         return _empty(f"No ensemble data for {model_name}")
 
-    # 10-90% uncertainty band
-    fig.add_trace(go.Scatter(
-        x=stats_df.index.tolist() + stats_df.index[::-1].tolist(),
-        y=stats_df["p90"].tolist() + stats_df["p10"][::-1].tolist(),
-        fill="toself",
-        fillcolor=color_fill,
-        line=dict(color="rgba(255,255,255,0)"),
-        name="10th–90th Percentile",
-        hoverinfo="skip",
-    ))
+    is_deterministic = member_count == 1
 
-    # Median line
+    # 10-90% uncertainty band — only meaningful for true ensembles.
+    if not is_deterministic:
+        fig.add_trace(go.Scatter(
+            x=stats_df.index.tolist() + stats_df.index[::-1].tolist(),
+            y=stats_df["p90"].tolist() + stats_df["p10"][::-1].tolist(),
+            fill="toself",
+            fillcolor=color_fill,
+            line=dict(color="rgba(255,255,255,0)"),
+            name="10th–90th Percentile",
+            hoverinfo="skip",
+        ))
+
+    # Forecast line — label drops the "Median" qualifier for deterministic.
+    line_label = "Forecast" if is_deterministic else "Median Forecast"
+    hover_label = "Forecast" if is_deterministic else "Median"
     fig.add_trace(go.Scatter(
         x=stats_df.index, y=stats_df["median"],
         line=dict(color=color_main, width=3),
-        name="Median Forecast",
-        hovertemplate="<b>Median</b><br>Wind: %{y:.1f} kn<br>%{x}<extra></extra>",
+        name=line_label,
+        hovertemplate=f"<b>{hover_label}</b><br>Wind: %{{y:.1f}} kn<br>%{{x}}<extra></extra>",
     ))
 
     # Threshold line
@@ -228,8 +235,13 @@ def create_ensemble_spread_chart(
     if weather_windows:
         add_weather_windows(fig, weather_windows)
 
+    title = (
+        f"{model_name} — Deterministic Forecast"
+        if is_deterministic
+        else f"{model_name} Ensemble Spread ({member_count} Members)"
+    )
     fig.update_layout(**_base(
-        title=f"{model_name} Ensemble Spread ({member_count} Members)",
+        title=title,
         yaxis_title="Wind Speed (knots)",
         xaxis_title="Date & Time",
         yaxis=dict(rangemode="tozero"),

@@ -774,6 +774,15 @@ def _get_bom_client():
         return None
 
 
+def _get_bom_async_client():
+    """Return the native-async BoM client if `beta.py` has initialized it."""
+    try:
+        from src.data.bom_api_client_async import get_bom_async_client
+        return get_bom_async_client()
+    except Exception:
+        return None
+
+
 def _reshape_bom_wind_to_marine_format(
     raw_df: pd.DataFrame,
     api_model: str,
@@ -863,23 +872,45 @@ def _fetch_bom_wind_ensemble_sync(
         if cached is not None:
             return cached
 
-    bom_client = _get_bom_client()
-    if bom_client is None or not bom_client.is_available:
-        logger.debug("BoM client unavailable — skipping %s", model_key)
-        return {"df": pd.DataFrame(), "generation_time": None, "first_forecast_time": None}
-
+    # Prefer the native-async client when registered (beta.py): bridge this
+    # sync caller into a fresh event loop so per-model chart callbacks use
+    # the same auth/fetch path as the async fan-out. App.py never registers
+    # the async client, so it falls through to the sync path verbatim.
+    async_bom = _get_bom_async_client()
     start = time.time()
-    try:
-        raw_df = bom_client.get_point_dataframe(
-            model=api_model,
-            lons=[lon],
-            lats=[lat],
-            variables=["wind_speed", "wind_direction", "gust"],
-            map_variable_names=True,
-        )
-    except Exception as e:
-        logger.error("BoM wind ensemble fetch failed (%s): %s", model_key, e)
-        return {"df": pd.DataFrame(), "generation_time": None, "first_forecast_time": None}
+    if async_bom is not None and async_bom.is_available:
+        loop = asyncio.new_event_loop()
+        try:
+            raw_df = loop.run_until_complete(
+                async_bom.get_point_dataframe(
+                    model=api_model,
+                    lons=[lon],
+                    lats=[lat],
+                    variables=["wind_speed", "wind_direction", "gust"],
+                    map_variable_names=True,
+                )
+            )
+        except Exception as e:
+            logger.error("BoM wind ensemble fetch failed (%s, sync→async): %s", model_key, e)
+            return {"df": pd.DataFrame(), "generation_time": None, "first_forecast_time": None}
+        finally:
+            loop.close()
+    else:
+        bom_client = _get_bom_client()
+        if bom_client is None or not bom_client.is_available:
+            logger.debug("BoM client unavailable — skipping %s", model_key)
+            return {"df": pd.DataFrame(), "generation_time": None, "first_forecast_time": None}
+        try:
+            raw_df = bom_client.get_point_dataframe(
+                model=api_model,
+                lons=[lon],
+                lats=[lat],
+                variables=["wind_speed", "wind_direction", "gust"],
+                map_variable_names=True,
+            )
+        except Exception as e:
+            logger.error("BoM wind ensemble fetch failed (%s): %s", model_key, e)
+            return {"df": pd.DataFrame(), "generation_time": None, "first_forecast_time": None}
 
     df = _reshape_bom_wind_to_marine_format(raw_df, api_model, deterministic)
     if not df.empty and not deterministic:
@@ -930,27 +961,44 @@ async def _async_fetch_bom_wind_ensemble(
         if cached is not None:
             return cached
 
-    bom_client = _get_bom_client()
-    if bom_client is None or not bom_client.is_available:
-        logger.debug("BoM client unavailable — skipping %s", model_key)
-        return {"df": pd.DataFrame(), "generation_time": None, "first_forecast_time": None}
-
+    # Prefer the native-async BoM client when registered (beta.py path) —
+    # avoids the thread-pool executor entirely. Falls through to the sync
+    # client + run_in_executor when only the sync client is initialized
+    # (app.py path), preserving the original behavior bit-for-bit.
+    async_bom = _get_bom_async_client()
     start = time.time()
-    try:
-        loop = asyncio.get_event_loop()
-        raw_df = await loop.run_in_executor(
-            None,
-            lambda: bom_client.get_point_dataframe(
+    if async_bom is not None and async_bom.is_available:
+        try:
+            raw_df = await async_bom.get_point_dataframe(
                 model=api_model,
                 lons=[lon],
                 lats=[lat],
                 variables=["wind_speed", "wind_direction", "gust"],
                 map_variable_names=True,
-            ),
-        )
-    except Exception as e:
-        logger.error("BoM wind ensemble fetch failed (%s): %s", model_key, e)
-        return {"df": pd.DataFrame(), "generation_time": None, "first_forecast_time": None}
+            )
+        except Exception as e:
+            logger.error("BoM wind ensemble fetch failed (%s, async): %s", model_key, e)
+            return {"df": pd.DataFrame(), "generation_time": None, "first_forecast_time": None}
+    else:
+        bom_client = _get_bom_client()
+        if bom_client is None or not bom_client.is_available:
+            logger.debug("BoM client unavailable — skipping %s", model_key)
+            return {"df": pd.DataFrame(), "generation_time": None, "first_forecast_time": None}
+        try:
+            loop = asyncio.get_event_loop()
+            raw_df = await loop.run_in_executor(
+                None,
+                lambda: bom_client.get_point_dataframe(
+                    model=api_model,
+                    lons=[lon],
+                    lats=[lat],
+                    variables=["wind_speed", "wind_direction", "gust"],
+                    map_variable_names=True,
+                ),
+            )
+        except Exception as e:
+            logger.error("BoM wind ensemble fetch failed (%s): %s", model_key, e)
+            return {"df": pd.DataFrame(), "generation_time": None, "first_forecast_time": None}
 
     df = _reshape_bom_wind_to_marine_format(raw_df, api_model, deterministic)
 

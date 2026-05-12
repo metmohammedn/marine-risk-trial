@@ -14,8 +14,14 @@ logger = logging.getLogger(__name__)
 
 
 def convert_df_to_csv(df: pd.DataFrame) -> str:
-    """Convert a DataFrame to CSV string (for Dash dcc.Download)."""
-    return df.to_csv()
+    """Convert a DataFrame to CSV string (for Dash dcc.Download).
+
+    Prefixes a `#`-commented BETA notice for provenance. pandas/numpy
+    consumers can skip it with `read_csv(..., comment='#')`; spreadsheet
+    apps (Excel/Numbers) will show it as a single text row above the data.
+    """
+    banner = "# BETA — capabilities trial for evaluation. Not for operational use.\n"
+    return banner + df.to_csv()
 
 
 def generate_pdf_report(
@@ -57,6 +63,27 @@ def generate_pdf_report(
     )
 
     # ── Header ───────────────────────────────────────────────────────────
+    # BETA banner — matches the in-app top-of-page strip for provenance.
+    banner_text_style = ParagraphStyle(
+        "BannerText", parent=styles["Normal"],
+        fontSize=10, alignment=1, fontName="Helvetica-Bold",
+        textColor=colors.HexColor("#1e293b"),
+    )
+    banner_table = Table(
+        [[Paragraph(
+            "BETA — capabilities trial for evaluation. Not for operational use.",
+            banner_text_style,
+        )]],
+        colWidths=[doc.width],
+    )
+    banner_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fbbf24")),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(banner_table)
+    elements.append(Spacer(1, 10))
+
     elements.append(Paragraph(f"Wind & Wave Risk Report — {site_name}", title_style))
     elements.append(Paragraph(
         f"Model: {model_name} | Generated: {datetime.now().strftime('%H:%M %d-%b-%Y')} | "
@@ -83,8 +110,10 @@ def generate_pdf_report(
             peak = median_wind.max()
             if peak > wind_threshold:
                 any_exceedance = True
+                # Deterministic models (1 pseudo-member) have no median to speak of.
+                peak_label = "peak" if len(wind_cols) == 1 else "median peak"
                 elements.append(Paragraph(
-                    f"WARNING: Wind median peak {peak:.0f} kn exceeds {wind_threshold} kn threshold",
+                    f"WARNING: Wind {peak_label} {peak:.0f} kn exceeds {wind_threshold} kn threshold",
                     ParagraphStyle("warn", parent=styles["Normal"], textColor=colors.red),
                 ))
 
@@ -111,30 +140,43 @@ def generate_pdf_report(
         wind_cols = [c for c in wind_df.columns if "wind_speed_10m" in c and "member" in c]
         if wind_cols:
             daily = wind_df[wind_cols].resample("D")
-            table_data = [["Date", "Max Median (kn)", "Max P90 (kn)", "Exceed %", "Status"]]
+            is_deterministic = len(wind_cols) == 1
+
+            if is_deterministic:
+                table_data = [["Date", "Max (kn)", "Exceed %", "Status"]]
+            else:
+                table_data = [["Date", "Max Median (kn)", "Max P90 (kn)", "Exceed %", "Status"]]
 
             for date, group in daily:
                 if group.empty:
                     continue
                 med = group.median(axis=1, skipna=True)
-                p90 = group.quantile(0.9, axis=1)
                 exceed = (group > wind_threshold).sum(axis=1).mean() / len(wind_cols) * 100
 
                 peak_med = med.max()
-                peak_p90 = p90.max()
                 status = "EXCEEDS" if peak_med > wind_threshold else "OK"
 
-                table_data.append([
-                    date.strftime("%a %d %b"),
-                    f"{peak_med:.1f}",
-                    f"{peak_p90:.1f}",
-                    f"{exceed:.0f}%",
-                    status,
-                ])
+                if is_deterministic:
+                    table_data.append([
+                        date.strftime("%a %d %b"),
+                        f"{peak_med:.1f}",
+                        f"{exceed:.0f}%",
+                        status,
+                    ])
+                else:
+                    peak_p90 = group.quantile(0.9, axis=1).max()
+                    table_data.append([
+                        date.strftime("%a %d %b"),
+                        f"{peak_med:.1f}",
+                        f"{peak_p90:.1f}",
+                        f"{exceed:.0f}%",
+                        status,
+                    ])
 
             if len(table_data) > 1:
                 elements.append(Paragraph("Wind Risk Summary (Daily)", styles["Heading2"]))
-                t = Table(table_data, colWidths=[80, 100, 100, 80, 80])
+                col_widths = [80, 120, 80, 80] if is_deterministic else [80, 100, 100, 80, 80]
+                t = Table(table_data, colWidths=col_widths)
                 t.setStyle(TableStyle([
                     ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e293b")),
                     ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -189,7 +231,7 @@ def generate_pdf_report(
     # ── Footer ───────────────────────────────────────────────────────────
     elements.append(Spacer(1, 20))
     elements.append(Paragraph(
-        "Weather Intelligence Dashboard | Data: Open-Meteo APIs | This report is automatically generated.",
+        "Weather Intelligence Dashboard | Data: Open-Meteo Ensemble APIs and Bureau of Meteorology Weather API | This report is automatically generated.",
         ParagraphStyle("footer", parent=styles["Normal"], fontSize=8, textColor=colors.gray),
     ))
 
@@ -301,6 +343,18 @@ def generate_interactive_html(
             margin: 0 auto;
             padding: 24px;
         }}
+        /* BETA banner — matches the in-app top strip */
+        .report-banner {{
+            background: #fbbf24;
+            color: #1e293b;
+            text-align: center;
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0.02em;
+            padding: 10px 24px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }}
         /* Header */
         .report-header {{
             background: var(--bg-card);
@@ -391,6 +445,7 @@ def generate_interactive_html(
 </head>
 <body>
     <div class="container">
+        <div class="report-banner">BETA &mdash; capabilities trial for evaluation. Not for operational use.</div>
         <div class="report-header">
             <h1>Marine Risk Report &mdash; {site_name}</h1>
             <div class="header-meta">
@@ -406,7 +461,7 @@ def generate_interactive_html(
         {charts_html}
 
         <div class="report-footer">
-            Weather Intelligence Dashboard &mdash; Data: Open-Meteo Ensemble APIs
+            Weather Intelligence Dashboard &mdash; Data: Open-Meteo Ensemble APIs and Bureau of Meteorology Weather API
             &mdash; Interactive report generated {now_str}
             <br>All charts are fully interactive: zoom, pan, and hover for details.
         </div>
