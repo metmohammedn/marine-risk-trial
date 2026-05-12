@@ -17,7 +17,6 @@ services:
       - HOST=0.0.0.0
       - PORT=8050
       - DEBUG=false
-      - REDIS_URL=redis://redis:6379/0
       - DATA_SOURCE=${DATA_SOURCE:-open-meteo}
       - GUNICORN_WORKERS=${GUNICORN_WORKERS:-4}
       - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-120}
@@ -29,27 +28,9 @@ services:
       - POSTHOG_HOST=${POSTHOG_HOST:-https://us.i.posthog.com}
       # APP_VERSION is baked into the image at build time (see Dockerfile ARG).
       # Override at runtime only if needed (e.g. Beanstalk env var).
-    depends_on:
-      redis:
-        condition: service_healthy
     restart: unless-stopped
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
-
-  redis:
-    image: redis:7-alpine
-    # No ports exposed — only accessible from app via Docker network
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-    restart: unless-stopped
-
-volumes:
-  redis_data:

@@ -29,11 +29,12 @@ EXPOSE 8050
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8050/health || exit 1
 
-# Run with gunicorn for production
-# - 4 workers (adjust via GUNICORN_WORKERS env var)
-# - Bind to 0.0.0.0:8050 (override via HOST/PORT env vars)
+# Run with gunicorn for production.
+# beta.py is the AWS deploy entry point (native-async BoM, no Redis,
+# no PostHog). app.py is the local-only comparison sibling and is not
+# the deploy target.
 CMD ["sh", "-c", \
-    "gunicorn app:server \
+    "gunicorn beta:server \
         --bind ${HOST:-0.0.0.0}:${PORT:-8050} \
         --workers ${GUNICORN_WORKERS:-4} \
         --timeout ${GUNICORN_TIMEOUT:-120} \
