@@ -30,6 +30,7 @@ from src.utils.constants import (
     DEFAULT_WEATHER_WINDOW_GUST_KN,
     DEFAULT_WEATHER_WINDOW_WAVE_M,
     DEFAULT_WEATHER_WINDOW_MODEL,
+    DEFAULT_WEATHER_WINDOW_TIME_BLOCK,
     WEATHER_WINDOW_WIND_PERCENTILE,
 )
 
@@ -465,6 +466,27 @@ def calculate_model_agreement(
 # Weather windows — optimal operating periods
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _time_block_mask(index: pd.DatetimeIndex, time_block: str) -> pd.Series:
+    """
+    Build a boolean Series over `index` that is True only inside the selected
+    time-of-day block. Hours are read from the index as-is — the caller is
+    expected to have already converted to the user-facing timezone.
+
+    Blocks are defined inclusive of the start hour and exclusive of the end
+    hour, matching the dropdown labels in `WEATHER_WINDOW_TIME_BLOCKS`.
+    """
+    hour = index.hour
+    if time_block == "morning":     # 7am – 12pm
+        mask = (hour >= 7) & (hour < 12)
+    elif time_block == "afternoon": # 12pm – 5pm
+        mask = (hour >= 12) & (hour < 17)
+    elif time_block == "overnight": # 5pm – 7am (spans midnight)
+        mask = (hour >= 17) | (hour < 7)
+    else:                           # "all" or unknown → no filter
+        mask = np.ones(len(index), dtype=bool)
+    return pd.Series(mask, index=index)
+
+
 def calculate_weather_windows(
     wind_data: Dict[str, Dict[str, Any]],
     wave_df: pd.DataFrame,
@@ -472,23 +494,28 @@ def calculate_weather_windows(
     gust_thresh: float = DEFAULT_WEATHER_WINDOW_GUST_KN,
     wave_thresh: float = DEFAULT_WEATHER_WINDOW_WAVE_M,
     model_key: str = DEFAULT_WEATHER_WINDOW_MODEL,
+    time_block: str = DEFAULT_WEATHER_WINDOW_TIME_BLOCK,
 ) -> Dict:
     """
     Calculate optimal weather windows where all conditions are simultaneously met:
     - P90 wind speed across the selected model's ensemble < wind_thresh
     - Ensemble max gust (P100) < gust_thresh
     - Wave height < wave_thresh (skipped for land stations)
+    - Hour-of-day falls inside `time_block` (morning / afternoon / overnight /
+      all). The overnight block spans midnight, so a calm run from 5pm Mon to
+      7am Tue surfaces as one window and the next night surfaces as another.
 
     ``model_key`` selects the wind source. Only ensemble models with both wind
     and gust variables are supported: "ECMWF IFS", "GFS", "ACCESS-GE". Waves
     always come from ECMWF WAM regardless of the wind model.
 
     Returns dict with 'windows' (list of (start, end) tuples), 'total_hours',
-    'next_window' (tuple or None), 'is_open_now' (bool), 'model_key' (str).
+    'next_window' (tuple or None), 'is_open_now' (bool), 'model_key' (str),
+    'time_block' (str).
     """
     empty = {
         "windows": [], "total_hours": 0, "next_window": None,
-        "is_open_now": False, "model_key": model_key,
+        "is_open_now": False, "model_key": model_key, "time_block": time_block,
     }
 
     model_data = wind_data.get(model_key, {})
@@ -521,6 +548,8 @@ def calculate_weather_windows(
         wave_safe = wave_reindexed.isna() | (wave_reindexed < wave_thresh)
         safe_mask = safe_mask & wave_safe
 
+    safe_mask = safe_mask & _time_block_mask(df.index, time_block)
+
     windows = _extract_contiguous_windows(safe_mask)
     total_hours = sum(
         int((end - start).total_seconds() / 3600) for start, end in windows
@@ -544,6 +573,7 @@ def calculate_weather_windows(
         "next_window": next_window,
         "is_open_now": is_open_now,
         "model_key": model_key,
+        "time_block": time_block,
     }
 
 

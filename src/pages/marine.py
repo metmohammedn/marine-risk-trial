@@ -27,6 +27,8 @@ from src.utils.constants import (
     DEFAULT_WEATHER_WINDOW_WAVE_M,
     DEFAULT_WEATHER_WINDOW_MODEL,
     WEATHER_WINDOW_MODELS,
+    DEFAULT_WEATHER_WINDOW_TIME_BLOCK,
+    WEATHER_WINDOW_TIME_BLOCKS,
     TIMEZONE_OPTIONS,
 )
 
@@ -223,6 +225,19 @@ def layout():
                                     value=DEFAULT_WEATHER_WINDOW_MODEL,
                                     allowDeselect=False,
                                     w={"base": "100%", "xs": 260},
+                                ),
+                            ],
+                        ),
+                        dmc.Stack(
+                            gap=2,
+                            children=[
+                                dmc.Text("Time of day", size="xs", c="dimmed"),
+                                dmc.Select(
+                                    id="marine-ww-time-block",
+                                    data=WEATHER_WINDOW_TIME_BLOCKS,
+                                    value=DEFAULT_WEATHER_WINDOW_TIME_BLOCK,
+                                    allowDeselect=False,
+                                    w={"base": "100%", "xs": 220},
                                 ),
                             ],
                         ),
@@ -448,13 +463,14 @@ def _is_marine_for_user(site_name: str, user_locs: dict) -> bool:
     Input("marine-refresh-btn", "n_clicks"),
     Input("marine-weather-window-toggle", "checked"),
     Input("marine-ww-model", "value"),
+    Input("marine-ww-time-block", "value"),
     Input("marine-timezone-select", "value"),
     State("marine-user-locations", "data"),
     prevent_initial_call=False,
 )
 def update_marine_charts(
     site_name, wind_threshold, gust_threshold, wave_threshold, forecast_window,
-    _n_clicks, ww_enabled, ww_model, timezone_str, user_locs,
+    _n_clicks, ww_enabled, ww_model, ww_time_block, timezone_str, user_locs,
 ):
     from src.services.marine_service import (
         async_fetch_all_marine_data,
@@ -475,6 +491,7 @@ def update_marine_charts(
     wave_threshold = wave_threshold or DEFAULT_WEATHER_WINDOW_WAVE_M
     forecast_window = forecast_window or 168
     ww_model = ww_model or DEFAULT_WEATHER_WINDOW_MODEL
+    ww_time_block = ww_time_block or DEFAULT_WEATHER_WINDOW_TIME_BLOCK
 
     empty_fig = _empty("Select a site to view data")
     empty_banner = _make_banner("Loading...", "gray", "tabler:loader")
@@ -526,7 +543,7 @@ def update_marine_charts(
     if ww_enabled:
         ww_result = calculate_weather_windows(
             wind_data, wave_df, wind_threshold, gust_threshold, wave_threshold,
-            model_key=ww_model,
+            model_key=ww_model, time_block=ww_time_block,
         )
         windows = ww_result["windows"]
         ww_summary = _weather_window_summary(
@@ -1174,23 +1191,41 @@ def _weather_window_summary(ww_result, wind_thresh, gust_thresh, wave_thresh):
     next_window = ww_result.get("next_window")
     is_open = ww_result.get("is_open_now", False)
     model_key = ww_result.get("model_key", DEFAULT_WEATHER_WINDOW_MODEL)
+    time_block = ww_result.get("time_block", DEFAULT_WEATHER_WINDOW_TIME_BLOCK)
+    time_block_label = next(
+        (b["label"] for b in WEATHER_WINDOW_TIME_BLOCKS if b["value"] == time_block),
+        "All day",
+    )
 
-    status_color = "green" if is_open else "red"
-    status_text = "WINDOW OPEN" if is_open else "WINDOW CLOSED"
+    # Three-state status: a future window exists but we're not in it now → orange
+    # "PARTIAL WINDOW", to distinguish from genuinely no-windows-in-forecast.
+    if is_open:
+        status_color, status_text = "green", "WINDOW OPEN"
+    elif windows:
+        status_color, status_text = "orange", "PARTIAL WINDOW"
+    else:
+        status_color, status_text = "red", "WINDOW CLOSED"
+
+    header_badges = [
+        DashIconify(icon="tabler:clock-check", color="#22c55e", width=20),
+        dmc.Text("Weather Windows", size="sm", fw=600, c="white"),
+        dmc.Badge(status_text, color=status_color, variant="light", size="sm"),
+        dmc.Badge(f"{model_key} · P90 wind / P100 gust", color="gray", variant="light", size="sm"),
+    ]
+    if time_block != "all":
+        header_badges.append(
+            dmc.Badge(time_block_label, color="cyan", variant="light", size="sm")
+        )
 
     children = [
-        dmc.Group(gap="sm", children=[
-            DashIconify(icon="tabler:clock-check", color="#22c55e", width=20),
-            dmc.Text("Weather Windows", size="sm", fw=600, c="white"),
-            dmc.Badge(status_text, color=status_color, variant="light", size="sm"),
-            dmc.Badge(f"{model_key} · P90 wind / P100 gust", color="gray", variant="light", size="sm"),
-        ]),
+        dmc.Group(gap="sm", children=header_badges),
         dmc.Text(
             f"Wind < {wind_thresh} kn, Gusts < {gust_thresh} kn, Waves < {wave_thresh} m",
             size="xs", c="dimmed",
         ),
         dmc.Text(
-            f"{len(windows)} window(s) found — {total_hours}h total optimal time",
+            f"{len(windows)} window(s) found — {total_hours}h total optimal time"
+            + (f" within {time_block_label}" if time_block != "all" else ""),
             size="xs", c="white",
         ),
     ]

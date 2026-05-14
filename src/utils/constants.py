@@ -128,6 +128,18 @@ WEATHER_WINDOW_MODELS = [
     {"value": "ACCESS-GE", "label": "BoM ACCESS-GE (18 members)"},
 ]
 
+# Time-of-day filter for the optimal-window calc. Applied in the user-selected
+# timezone (after the tz conversion in marine.py). "overnight" spans midnight
+# (5pm–7am) and naturally produces one window per night because the daytime
+# hours are filtered out in between.
+DEFAULT_WEATHER_WINDOW_TIME_BLOCK = "all"
+WEATHER_WINDOW_TIME_BLOCKS = [
+    {"value": "all",       "label": "All day"},
+    {"value": "morning",   "label": "Morning (7am – 12pm)"},
+    {"value": "afternoon", "label": "Afternoon (12pm – 5pm)"},
+    {"value": "overnight", "label": "Overnight (5pm – 7am)"},
+]
+
 # Previous model run trace styling
 PREV_RUN_TRACE_COLOR = "#6b7280"
 PREV_RUN_TRACE_DASH = "dash"
